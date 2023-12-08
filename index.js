@@ -16,6 +16,9 @@ const ownerAddresses = [
   "5VCwKtCXgCJ6kit5FybXjvriW3xELsFDhYrPSqtJNmcD", // okx
 ];
 
+// 3 seconds timer to avoid rate limiting. Adjust / fix as necessary.
+const delay = () => new Promise(resolve => setTimeout(resolve, 3000));
+
 const scanTokens = async () => {
   let fungibleTokenArray = [];
 
@@ -77,6 +80,8 @@ const scanTokens = async () => {
       .catch((error) => {
         console.error(error);
       });
+
+      await delay();
     })
   );
     console.log(JSON.stringify(fungibleTokenArray));

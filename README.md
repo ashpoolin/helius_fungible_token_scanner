@@ -10,11 +10,12 @@ Modify it and make it your own :)
 ## Use:
 1. install: `npm install`
 2. Modify your `.env` file to include the correct API key
-3. Scan an owner wallet: `node --no-warnings index.js <ADDRESS_YOU_WANT_TO_SCAN>`
-4. output to csv: `node --no-warnings index.js <ADDRESS_YOU_WANT_TO_SCAN> > <SCANNED_OUTPUT>.csv`
-5. make it easier to read: `node --no-warnings index.js <ADDRESS_YOU_WANT_TO_SCAN> | csvlook`  
-_*Note: the --no-warnings flag is used because Axios just says something annoying when you call the fetch command. It should be OK for our purposes.*_
-
+3. open `index.js` and update the `ownerAddresses` array to include all addresses you want to scan.
+4. Adjust the delay timer in ms to accommodate whatever rate limits you have.
+5. Scan wallets and dump to JSON: `node index.js > outfile.json`
+6. Scan wallets and dump to CSV (requires command line tools `jq` and `csvkit`): `node index.js | jq . | in2csv --format json > outfile.csv`
+7. make a csv output a human-readable output: `node index.js | jq . | in2csv --format json | csvlook`  
+8. Exercise for the reader: take your JSON or CSV file and import into Excel / db to grab coin and USD totals; group by owner or mint, for example.
 Example:
 
 ![Example Scan](images/example_scan.jpg)
