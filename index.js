@@ -5,60 +5,80 @@ require("dotenv").config();
 const HELIUS_RPC_URL = process.env.HELIUS_RPC_URL;
 const CONNECTION = new Connection(HELIUS_RPC_URL, "confirmed");
 
-const owner = process.argv[2];
+// no longer using command line arg
+// const address = process.argv[2];
+
+// put in your top level wallet addresses ("owner") here
+const ownerAddresses = [
+  //examples
+  "FWznbcNXWQuHTawe9RxvQ2LdCENssh12dsznf4RiouN5", // kraken
+  "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", // binance cold
+  "5VCwKtCXgCJ6kit5FybXjvriW3xELsFDhYrPSqtJNmcD", // okx
+];
 
 const scanTokens = async () => {
-  console.log("symbol,id,uibalance,price_per_token,total_price,currency,associated_token_address");
+  let fungibleTokenArray = [];
 
-
-  const getBalance = async (address) => {
-    const lamports = await CONNECTION.getBalance(new PublicKey(address));
-    return lamports / LAMPORTS_PER_SOL;
-  }
-  const ownerBalance = await getBalance(owner);
-  console.log(`SOL,undefined,${ownerBalance},undefined,undefined,undefined,${owner}`);
-
-  const payload = {
-      jsonrpc: '2.0',
-      // id: 'helius-test',
-      method: 'searchAssets',
+  await Promise.all(
+  ownerAddresses.map(async (address) => {
+    const selectedType = "fungible";
+    const payload = {
+      jsonrpc: "2.0",
+      id: "helius-test",
+      method: "searchAssets",
       params: {
-        ownerAddress: `${owner}`,
-        tokenType: 'fungible' // fungible, nonFungible, regularNft , compressedNft, and all
-      }
-  };
-  
-  axios.post(`${HELIUS_RPC_URL}`, payload)
-    .then(response => {
-      response.data.result.items.forEach(asset => {
+        ownerAddress: address,
+        tokenType: `${selectedType}`, // fungible, nonFungible, regularNft , compressedNft, and all (note: all types other than 'fungible' will require additional work to parse the results)
+        displayOptions: {
+          showNativeBalance: true,
+        },
+      },
+    };
 
-        // don't show me garbage
-        if (asset.token_info.symbol !== undefined) {
-          // console.log(JSON.stringify(asset));        
-          const id = asset.id //
-          const description = asset.content.metadata?.description;
-          const name = asset.content.metadata?.name;
-          const token_standard = asset.content.metadata?.token_standard;
-          // token_info
-          const symbol = asset.token_info?.symbol;
-          const balance = asset.token_info?.balance;
-          const supply = asset.token_info?.supply;
-          const decimals = asset.token_info?.decimals;
-          const token_program = asset.token_info?.token_program;
-          const associated_token_address = asset.token_info?.associated_token_address;
-          const uibalance = balance ? balance / (10 ** decimals) : undefined;
-          // price_info
-          const price_per_token = asset.token_info?.price_info?.price_per_token;
-          const total_price = asset.token_info?.price_info?.total_price;
-          const currency = asset.token_info?.price_info?.currency;
-          console.log(
-              `${symbol},${id},${uibalance},${price_per_token},${total_price},${currency},${associated_token_address}`
-          );
-        }
+    // let walletValue = 0;
+    await axios
+      .post(HELIUS_RPC_URL, payload)
+      .then((response) => {
+        // GET SOL INFO
+        const ownerBalance =
+          response.data.result.nativeBalance.lamports / LAMPORTS_PER_SOL;
+        const pricePerSol = response.data.result.nativeBalance.price_per_sol;
+        const totalPrice = response.data.result.nativeBalance.total_price;
+        const solanaObject = {};
+        solanaObject.symbol = "SOL";
+        solanaObject.mint = "-";
+        solanaObject.owner = address;
+        solanaObject.address = address;
+        solanaObject.balance = ownerBalance;
+        solanaObject.price = pricePerSol;
+        solanaObject.total = totalPrice;
+        fungibleTokenArray.push(solanaObject);
+        // walletValue += totalPrice;
+
+        // GET SPL INFO
+        response.data.result.items.forEach((asset) => {
+          // don't show me garbage
+          if (asset.token_info.symbol !== undefined) {
+            const tokenData = {};
+            tokenData.symbol = asset.token_info?.symbol;
+            tokenData.mint = asset.id;
+            tokenData.owner = address;
+            tokenData.address = asset.token_info?.associated_token_address;
+            const balance = asset.token_info?.balance;
+            const decimals = asset.token_info?.decimals;
+            tokenData.balance = balance ? balance / 10 ** decimals : undefined;
+            tokenData.price = asset.token_info?.price_info?.price_per_token;
+            tokenData.total = asset.token_info?.price_info?.total_price;
+            fungibleTokenArray.push(tokenData);
+            // walletValue += tokenData.total;
+          }
+        });
       })
+      .catch((error) => {
+        console.error(error);
+      });
     })
-    .catch(error => {
-      console.error(error);
-    });
+  );
+    console.log(JSON.stringify(fungibleTokenArray));
 }
 scanTokens();
